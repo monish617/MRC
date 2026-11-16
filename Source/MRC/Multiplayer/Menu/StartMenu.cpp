@@ -4,6 +4,13 @@
 #include "StartMenu.h"
 #include "Components\Button.h"
 #include "MRC\Multiplayer\Subsystem\MRC_GIS.h"
+#include "OnlineSessionSettings.h"
+#include "OnlineSubsystem.h"
+#include "Components/ComboBoxString.h"
+#include "Interfaces/OnlineSessionInterface.h"
+
+/// Must match the MatchType passed to CreateSession in OnStartGameClicked
+static const TCHAR* GMatchType = TEXT("ProMultiplayerGame");
 
 void UStartMenu::StartMenu()
 {
@@ -29,7 +36,13 @@ void UStartMenu::StartMenu()
 
 		if (SessionSubsystem)
 		{
-			SessionSubsystem->MultiplayerCreateSessionCompleteDelegate.AddDynamic(this, &UStartMenu::OnMultiplayerCreateSession);
+			/// Remove first so calling StartMenu() more than once never double-binds
+			SessionSubsystem->MultiplayerFindSessionsCompleteDelegate.RemoveAll(this);
+			SessionSubsystem->MultiplayerJoinSessionCompleteDelegate.RemoveAll(this);
+
+			SessionSubsystem->MultiplayerCreateSessionCompleteDelegate.AddUniqueDynamic(this, &UStartMenu::OnMultiplayerCreateSession);
+			SessionSubsystem->MultiplayerFindSessionsCompleteDelegate.AddUObject(this, &UStartMenu::OnMultiplayerFindSessionsComplete);
+			SessionSubsystem->MultiplayerJoinSessionCompleteDelegate.AddUObject(this, &UStartMenu::OnMultiplayerJoinSessionComplete);
 		}
 	}
 }
@@ -46,12 +59,12 @@ bool UStartMenu::Initialize()
 
 	if (Start_btn)
 	{
-		Start_btn->OnClicked.AddDynamic(this, &UStartMenu::OnStartGameClicked);
+		Start_btn->OnClicked.AddUniqueDynamic(this, &UStartMenu::OnStartGameClicked);
 	}
-	
+
 	if (Join_btn)
 	{
-		Join_btn->OnClicked.AddDynamic(this, &UStartMenu::OnJoinGameClicked);
+		Join_btn->OnClicked.AddUniqueDynamic(this, &UStartMenu::OnJoinGameClicked);
 	}
 
 	return true;
@@ -74,9 +87,16 @@ void UStartMenu::RemoveMenu()
 
 void UStartMenu::OnStartGameClicked()
 {
+	UE_LOG(LogTemp, Warning, TEXT("OnStartGameClicked widget=%p"), this);
+
 	if(SessionSubsystem)
 	{
-		SessionSubsystem->CreateSession(4, "TestMatch");
+
+		int32 NumbPlayers = FCString::Atoi(*NumberOfPlayers->GetSelectedOption());
+		/// Prevent double clicks creating two sessions
+		if (Start_btn) Start_btn->SetIsEnabled(false);
+		SessionSubsystem->CreateSession(NumbPlayers, GMatchType);
+
 	}
 
 }
@@ -85,31 +105,103 @@ void UStartMenu::OnJoinGameClicked()
 {
 	if(SessionSubsystem)
 	{
-		SessionSubsystem->FindSessions();
 		if (Join_btn)
 		{
 			Join_btn->SetIsEnabled(false);
 		}
-	
-		//SessionSubsystem->JoinSession();
+		SessionSubsystem->FindSessions();
 	}
 }
 
 void UStartMenu::OnMultiplayerCreateSession(bool bWasSuccesfull)
 {
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Multiplayer Session Created"));
-
-	}
-
 	if (bWasSuccesfull)
 	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Multiplayer Session Created"));
+		}
+
 		if (UWorld* world = GetWorld())
 		{
 			world->ServerTravel(MapLocation);
 			RemoveMenu();
-			
 		}
 	}
+	else
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Failed to create session"));
+		}
+		if (Start_btn) Start_btn->SetIsEnabled(true);
+	}
+}
+
+void UStartMenu::OnMultiplayerFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SearchResults, bool bWasSuccessful)
+{
+	if (!SessionSubsystem) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("Find complete: success=%d results=%d"), bWasSuccessful, SearchResults.Num());
+
+	if (bWasSuccessful)
+	{
+		for (const FOnlineSessionSearchResult& Result : SearchResults)
+		{
+			FString MatchType;
+			Result.Session.SessionSettings.Get(FName("MatchType"), MatchType);
+			UE_LOG(LogTemp, Warning, TEXT("Found session, MatchType='%s'"), *MatchType);
+
+			if (MatchType == FString(GMatchType))
+			{
+				SessionSubsystem->JoinSession(Result);
+				return;   // join only the first match
+			}
+		}
+	}
+
+	/// Nothing found / failed: allow the user to try again
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("No session found"));
+	}
+	if (Join_btn) Join_btn->SetIsEnabled(true);
+}
+
+void UStartMenu::OnMultiplayerJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result)
+{
+	if (Result != EOnJoinSessionCompleteResult::Success)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Join failed: %d"), (int32)Result);
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Join failed"));
+		}
+		if (Join_btn) Join_btn->SetIsEnabled(true);
+		return;
+	}
+
+	if(IOnlineSubsystem* OnlineSubsystemPtr = IOnlineSubsystem::Get())
+	{
+		if (IOnlineSessionPtr SessionInterface = OnlineSubsystemPtr->GetSessionInterface())
+		{
+			FString MatchAddress;
+			SessionInterface->GetResolvedConnectString(NAME_GameSession, MatchAddress);
+			UE_LOG(LogTemp, Warning, TEXT("Join success, connect string='%s'"), *MatchAddress);
+
+			if (MatchAddress.IsEmpty())
+			{
+				if (Join_btn) Join_btn->SetIsEnabled(true);
+				return;
+			}
+
+			if(APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController())
+			{
+				RemoveMenu();
+				PlayerController->ClientTravel(MatchAddress, ETravelType::TRAVEL_Absolute);
+
+			}
+		}
+	}
+
 }

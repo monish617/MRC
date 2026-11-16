@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint\UserWidget.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "StartMenu.generated.h"
 
 /**
@@ -11,7 +12,9 @@
  */
 //Forward Declaration
 class UButton;
+class UComboBoxString;
 class UMRC_GIS;
+class FOnlineSessionSearchResult;
 
 UCLASS()
 class MRC_API UStartMenu :public UUserWidget
@@ -35,6 +38,9 @@ private:
 	UPROPERTY(EditAnywhere,Category ="Startmenu")
 	TObjectPtr<UMRC_GIS> SessionSubsystem;
 
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UComboBoxString> NumberOfPlayers;
+
 
 	FString MapLocation{TEXT("/Game/Maps/Lobby?Listen")};
 
@@ -45,11 +51,17 @@ private:
 	UFUNCTION()
 	void OnJoinGameClicked();
 
+	void RemoveMenu();
+
 	///Delegate Callback functions
 
 	UFUNCTION()
 	void OnMultiplayerCreateSession(bool bWasSuccesfull);
+
+	void OnMultiplayerFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SearchResults, bool bWasSuccessful);
+
+	void OnMultiplayerJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result);
 	
-	void RemoveMenu();
+	
 
 };

@@ -46,6 +46,7 @@ protected:
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 
 private:
 	/// Multiplayer Subsystem Variables
@@ -63,6 +64,13 @@ private:
 	FDelegateHandle OnFindSessionsCompleteDelegateHandle;
 	FOnJoinSessionCompleteDelegate OnJoinSessionCompleteDelegate;
 	FDelegateHandle OnJoinSessionCompleteDelegateHandle;
+	FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
+	FDelegateHandle OnDestroySessionCompleteDelegateHandle;
+
+	/// Pending create request (used when an old session must be destroyed first)
+	bool bCreateSessionOnDestroy{ false };
+	int32 PendingNumPlayers{ 0 };
+	FString PendingMatchType;
 
 	/// Generate Custom Session ID
 	FString GenerateUniqueSessionId() const;

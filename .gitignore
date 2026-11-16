@@ -75,3 +75,6 @@ DerivedDataCache/*
 Automation_MRC.slnx
 .vsconfig
 MRC.slnx
+
+# dont add this file
+Content/AutomotiveMaterials/Materials/Interior/Leather/Textures/T_Suede_01_N.uasset

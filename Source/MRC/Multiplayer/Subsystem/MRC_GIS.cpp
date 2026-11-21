@@ -86,6 +86,7 @@ void UMRC_GIS::CreateSession(int32 NumPlayers, FString MatchType)
 	SessionSettings->bUseLobbiesIfAvailable = !bLan;
 	SessionSettings->Set(FName("MatchType"), MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	SessionSettings->Set(FName("SessionUniqueName"), CurrentSessionUniqueName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	CurrentSessionUniqueName.RemoveFromStart(MatchType);
 
 	UE_LOG(LogTemp, Warning, TEXT("CreateSession: subsystem=%s LAN=%d MatchType='%s' Unique='%s'"),
 		OnlineSubsystem ? *OnlineSubsystem->GetSubsystemName().ToString() : TEXT("none"), bLan, *MatchType, *CurrentSessionUniqueName);
@@ -172,6 +173,8 @@ void UMRC_GIS::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 		OnCreateSessionCompleteDelegateHandle.Reset();
 	}
 	MultiplayerCreateSessionCompleteDelegate.Broadcast(bWasSuccessful);
+
+
 
 	if (GEngine)
 		GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Green, FString::Printf(TEXT("Session Name: %s"), *CurrentSessionUniqueName));

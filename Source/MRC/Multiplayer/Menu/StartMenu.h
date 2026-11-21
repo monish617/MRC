@@ -13,6 +13,8 @@
 //Forward Declaration
 class UButton;
 class UComboBoxString;
+class UEditableTextBox;
+class UCheckBox;
 class UMRC_GIS;
 class FOnlineSessionSearchResult;
 
@@ -41,12 +43,24 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UComboBoxString> NumberOfPlayers;
 
+	UPROPERTY(meta =(BindWidget))
+	TObjectPtr<UCheckBox> bCustomSessionID;
+
+	UPROPERTY(meta = (BindWidget))	
+	TObjectPtr<UEditableTextBox> NewSessionID;
+
+
+	FString MatchTypeName{ TEXT("ProMultiplayerGame") };
 
 	FString MapLocation{TEXT("/Game/Maps/Lobby?Listen")};
 
 
 	UFUNCTION()
 	void OnStartGameClicked();
+
+	UFUNCTION()
+	void OnCustomSessionClicked(bool bIsChecked);
+
 
 	UFUNCTION()
 	void OnJoinGameClicked();

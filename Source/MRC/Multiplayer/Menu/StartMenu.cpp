@@ -7,6 +7,8 @@
 #include "OnlineSessionSettings.h"
 #include "OnlineSubsystem.h"
 #include "Components/ComboBoxString.h"
+#include "Components/CheckBox.h"
+#include "Components/EditableTextBox.h"
 #include "Interfaces/OnlineSessionInterface.h"
 
 /// Must match the MatchType passed to CreateSession in OnStartGameClicked
@@ -67,6 +69,11 @@ bool UStartMenu::Initialize()
 		Join_btn->OnClicked.AddUniqueDynamic(this, &UStartMenu::OnJoinGameClicked);
 	}
 
+	if (bCustomSessionID)
+	{
+		bCustomSessionID->OnCheckStateChanged.AddUniqueDynamic(this, &UStartMenu::OnCustomSessionClicked);
+	}
+
 	return true;
 
 }
@@ -99,6 +106,11 @@ void UStartMenu::OnStartGameClicked()
 
 	}
 
+}
+
+void UStartMenu::OnCustomSessionClicked(bool bIsChecked)
+{
+	NewSessionID->SetIsReadOnly(!bIsChecked);
 }
 
 void UStartMenu::OnJoinGameClicked()
@@ -152,11 +164,29 @@ void UStartMenu::OnMultiplayerFindSessionsComplete(const TArray<FOnlineSessionSe
 			Result.Session.SessionSettings.Get(FName("MatchType"), MatchType);
 			UE_LOG(LogTemp, Warning, TEXT("Found session, MatchType='%s'"), *MatchType);
 
-			if (MatchType == FString(GMatchType))
+			if (bCustomSessionID->IsChecked())
 			{
-				SessionSubsystem->JoinSession(Result);
-				return;   // join only the first match
+
+				if (MatchType == (MatchTypeName + NewSessionID->GetText().ToString()))
+				{
+					SessionSubsystem->JoinSession(Result);
+					return;
+				}
+
+				///*FString SessionID;
+				//Result.Session.SessionSettings.Get(FName("SessionID"), SessionID);
+				//UE_LOG(LogTemp, Warning, TEXT("Found session, SessionID='%s'"), *SessionID);*/
 			}
+			else
+			{
+				if (MatchType == FString(GMatchType))
+				{
+					SessionSubsystem->JoinSession(Result);
+					return;   // join only the first match
+				}
+			}
+
+			
 		}
 	}
 
